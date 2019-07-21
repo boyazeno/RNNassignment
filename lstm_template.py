@@ -175,12 +175,12 @@ def backward(activations, clipping=True):
         do[targets[t]] -= 1.
 
         # Ableitung von output Gleichung
-        dWhy = do.dot(hs[t].T)
+        dWhy += do.dot(hs[t].T)
         dhs[t] = Why.T.dot(do) + dhnext
-        dby = do
+        dby += do
 
         do_gate = dhs[t]*np.tanh(cs[t])
-        dcs[t] = dhs[t] * o_gate[t] * dtanh(hs[t]) + dcnext
+        dcs[t] = dhs[t] * o_gate[t] * dtanh(cs[t]) + dcnext
         df_gate = dcs[t]*cs[t-1]
         dcs[t-1] = dcs[t]*f_gate[t]
         di_gate = dcs[t]*c_gate[t]
@@ -190,31 +190,31 @@ def backward(activations, clipping=True):
         dcnext = dcs[t-1]
 
         di_gate_sigmoid = di_gate * dsigmoid(i_gate[t])
-        dWi = di_gate_sigmoid.dot(zs[t].T)
+        dWi += di_gate_sigmoid.dot(zs[t].T)
         dzs[t] = Wi.T.dot(di_gate_sigmoid)
-        dbi = di_gate_sigmoid
+        dbi += di_gate_sigmoid
 
         df_gate_sigmoid = df_gate * dsigmoid(f_gate[t])
-        dWf = df_gate_sigmoid.dot(zs[t].T)
+        dWf += df_gate_sigmoid.dot(zs[t].T)
         dzs[t] += Wf.T.dot(df_gate_sigmoid)
-        dbf = df_gate_sigmoid
+        dbf += df_gate_sigmoid
 
         do_gate_sigmoid = do_gate * dsigmoid(o_gate[t])
-        dWo = do_gate_sigmoid.dot(zs[t].T)
+        dWo += do_gate_sigmoid.dot(zs[t].T)
         dzs[t] += Wo.T.dot(do_gate_sigmoid)
-        dbo = do_gate_sigmoid
+        dbo += do_gate_sigmoid
 
         dc_gate_tanh = dc_gate * dtanh(c_gate[t])
-        dWc = dc_gate_tanh.dot(zs[t].T)
+        dWc += dc_gate_tanh.dot(zs[t].T)
         dzs[t] += Wc.T.dot(dc_gate_tanh)
-        dbc = dc_gate_tanh
+        dbc += dc_gate_tanh
 
         # update dhnext
         dhs[t-1] = dzs[t][0:hs[t - 1].shape[0],:]
         dhnext = dhs[t-1]
 
         dwes[t] = dzs[t][hs[t - 1].shape[0]:,:]
-        dWex = dwes[t].dot(xs[t].T)
+        dWex += dwes[t].dot(xs[t].T)
 
 
     if clipping:
@@ -343,6 +343,7 @@ elif option == 'gradcheck':
     loss, activations, _ = forward(inputs, targets, memory)
     gradients = backward(activations, clipping=False)
     dWex, dWf, dWi, dWo, dWc, dbf, dbi, dbo, dbc, dWhy, dby = gradients
+    fo = open("check.txt", "w")
 
     for weight, grad, name in zip([Wf, Wi, Wo, Wc, bf, bi, bo, bc, Wex, Why, by], 
                                    [dWf, dWi, dWo, dWc, dbf, dbi, dbo, dbc, dWex, dWhy, dby],
@@ -369,4 +370,7 @@ elif option == 'gradcheck':
             rel_error = abs(grad_analytic - grad_numerical) / abs(grad_numerical + grad_analytic)
 
             if rel_error > 0.01:
-                print ('WARNING %f, %f => %e ' % (grad_numerical, grad_analytic, rel_error))
+                fo.write(name+"\n")
+                fo.write('WARNING %f, %f => %e \n' % (grad_numerical, grad_analytic, rel_error))
+
+    fo.close()
